@@ -39,8 +39,17 @@ CATEGORIAS = [
 # GOOGLE SHEETS
 # -----------------
 
-creds = Credentials.from_service_account_file(
-    "credenciales.json",
+import json
+import os
+
+credenciales_dict = json.loads(
+    os.getenv(
+        "GOOGLE_CREDENTIALS"
+    )
+)
+
+creds = Credentials.from_service_account_info(
+    credenciales_dict,
     scopes=SCOPES
 )
 
