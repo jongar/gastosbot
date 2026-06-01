@@ -269,14 +269,14 @@ async def estado(update, context):
     datos = hoja.get_all_records()
 
     presupuesto = {
-        "Jonathan":1006200,
-        "Lorena":762000,
-        "Apolo":460000,
+        "Jonathan":667000,
+        "Lorena":667000,
+        "Apolo":529200,
         "Ahorros":5350000,
-        "Hogar":2267000,
+        "Hogar":3170000,
         "Entretenimiento":332000,
-        "Comida":1788700,
-        "Vivienda":1270000
+        "Comida":1588000,
+        "Vivienda":1303000
     }
 
     gastado = {}
