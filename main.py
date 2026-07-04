@@ -20,7 +20,9 @@ load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
 if not BOT_TOKEN:
-    raise ValueError("BOT_TOKEN no encontrado en .env")
+    raise ValueError(
+        "BOT_TOKEN no encontrado en las variables de entorno."
+    )
 
 SCOPES = (
     "https://www.googleapis.com/auth/spreadsheets",
