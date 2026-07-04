@@ -7,6 +7,8 @@ import os
 from telegram.ext import CommandHandler
 import matplotlib.pyplot as plt
 import tempfile
+import json
+from pathlib import Path
 
 
 # -----------------
@@ -15,14 +17,17 @@ import tempfile
 
 load_dotenv()
 
-TOKEN = os.getenv("BOT_TOKEN")
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-SCOPES = [
+if not BOT_TOKEN:
+    raise ValueError("BOT_TOKEN no encontrado en .env")
+
+SCOPES = (
     "https://www.googleapis.com/auth/spreadsheets",
-    "https://www.googleapis.com/auth/drive"
-]
+    "https://www.googleapis.com/auth/drive",
+)
 
-CATEGORIAS = [
+CATEGORIAS = {
     "vivienda",
     "comida",
     "jonathan",
@@ -31,36 +36,44 @@ CATEGORIAS = [
     "ahorros",
     "apolo",
     "hogar",
-    "entretenimiento"
-]
+    "entretenimiento",
+}
 
 
 # -----------------
 # GOOGLE SHEETS
 # -----------------
 
-import json
-import os
+google_credentials = os.getenv("GOOGLE_CREDENTIALS")
 
-credenciales_dict = json.loads(
-    os.getenv(
-        "GOOGLE_CREDENTIALS"
+if google_credentials:
+
+    print("☁️ Railway")
+
+    creds = Credentials.from_service_account_info(
+        json.loads(google_credentials),
+        scopes=SCOPES
     )
-)
 
-creds = Credentials.from_service_account_info(
-    credenciales_dict,
-    scopes=SCOPES
-)
+else:
+
+    print("💻 Local")
+
+    ruta = Path(__file__).parent / "credenciales.json"
+
+    if not ruta.exists():
+        raise FileNotFoundError("No existe credenciales.json")
+
+    creds = Credentials.from_service_account_file(
+        ruta,
+        scopes=SCOPES
+    )
 
 cliente = gspread.authorize(creds)
 
-hoja = cliente.open_by_url(
-    "https://docs.google.com/spreadsheets/d/1hmJDlbAIIGPkh0Eg97WU7BmfW-7nsxSGrvPaavrHg_Q/edit?gid=0#gid=0"
-).worksheet(
-    "Registro diario"
-)
+spreadsheet = cliente.open_by_url("https://docs.google.com/spreadsheets/d/1hmJDlbAIIGPkh0Eg97WU7BmfW-7nsxSGrvPaavrHg_Q/edit?gid=0#gid=0")
 
+hoja = spreadsheet.worksheet("Registro diario")
 
 # -----------------
 # BOT
@@ -76,31 +89,23 @@ async def registrar(update, context):
     errores = []
     filas = []
 
-    fecha = datetime.now().strftime(
-        "%Y-%m-%d %H:%M"
-    )
+    fecha = datetime.now().strftime("%Y-%m-%d %H:%M")
 
-    for numero, linea in enumerate(
-        lineas,
-        start=1
-    ):
+    for numero, linea in enumerate(lineas, start=1):
 
         try:
 
             partes = linea.split()
 
             if len(partes) < 2:
-                raise Exception()
+                raise ValueError()
 
-            valor = int(
-                partes[0]
-            )
+            if not partes[0].isdigit():
+                raise ValueError()
 
-            categoria = (
-                partes[1]
-                .lower()
-                .strip()
-            )
+            valor = int(partes[0])
+
+            categoria = partes[1].lower().strip()
 
             if categoria not in CATEGORIAS:
 
@@ -110,42 +115,29 @@ async def registrar(update, context):
 
                 continue
 
-            descripcion = ""
+            categoria = categoria.title()
 
-            if len(partes) > 2:
-
-                descripcion = " ".join(
-                    partes[2:]
-                )
+            descripcion = " ".join(partes[2:])
 
             filas.append([
                 fecha,
                 valor,
-                categoria.title(),
+                categoria,
                 descripcion
             ])
 
             registros.append(
-                f"💰 ${valor:,} | {categoria.title()} | {descripcion}"
+                f"💰 ${valor:,} | {categoria} | {descripcion}"
             )
 
-        except:
+        except ValueError:
 
             errores.append(
                 f"❌ Línea {numero}: formato inválido"
             )
 
     if filas:
-
-        ultima = len(
-	    hoja.get_all_values()
-        )
-
-        hoja.insert_rows(
-             filas,
-             row=ultima + 1,
-             value_input_option="USER_ENTERED"
-    )
+        guardar_filas(filas)
 
     respuesta = ""
 
@@ -155,9 +147,7 @@ async def registrar(update, context):
             f"✅ Registrados: {len(registros)}\n\n"
         )
 
-        respuesta += "\n".join(
-            registros
-        )
+        respuesta += "\n".join(registros)
 
     if errores:
 
@@ -165,9 +155,7 @@ async def registrar(update, context):
             "\n\n⚠️ Errores\n"
         )
 
-        respuesta += "\n".join(
-            errores
-        )
+        respuesta += "\n".join(errores)
 
     if respuesta == "":
 
@@ -178,6 +166,27 @@ async def registrar(update, context):
     await update.message.reply_text(
         respuesta
     )
+
+    
+def guardar_filas(filas):
+
+    try:
+
+        siguiente_fila = len(hoja.get_all_values()) + 1
+
+        hoja.insert_rows(
+            filas,
+            row=siguiente_fila,
+            value_input_option="USER_ENTERED"
+        )
+
+    except Exception as e:
+
+        print(e)
+        raise
+
+
+
 async def resumen(update, context):
 
     datos = hoja.get_all_records()
@@ -407,8 +416,8 @@ async def top(update, context):
                 )
             )
 
-        except:
-            pass
+        except Exception as e:
+            print(e)
 
     gastos = sorted(
         gastos,
@@ -863,8 +872,8 @@ async def faltante(update, context):
                 + valor
             )
 
-        except:
-            pass
+        except Exception as e:
+            print(e)
 
     texto = (
         "💸 Disponible presupuesto\n\n"
@@ -926,7 +935,7 @@ async def faltante(update, context):
 app = (
     Application
     .builder()
-    .token(TOKEN)
+    .token(BOT_TOKEN)
     .build()
 )
 
