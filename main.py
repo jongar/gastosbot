@@ -77,6 +77,10 @@ spreadsheet = cliente.open_by_url("https://docs.google.com/spreadsheets/d/1hmJDl
 
 hoja = spreadsheet.worksheet("Registro diario")
 
+hoja_presupuesto = spreadsheet.worksheet(
+    "Presupuesto"
+)
+
 # -----------------
 # BOT
 # -----------------
@@ -169,6 +173,37 @@ async def registrar(update, context):
         respuesta
     )
 
+def convertir_valor(valor):
+
+    return float(
+        str(valor)
+        .replace("$", "")
+        .replace(".", "")
+        .replace(",", "")
+    )
+
+def obtener_presupuesto():
+
+    datos = hoja_presupuesto.get("A10:C")
+
+    presupuesto = {}
+
+    for fila in datos:
+
+        if len(fila) < 2:
+            continue
+
+        gasto = fila[0].strip()
+
+        if gasto == "":
+            continue
+
+        valor = convertir_valor(fila[1])
+
+        presupuesto[gasto] = presupuesto.get(gasto, 0) + valor
+
+    return presupuesto
+
     
 def guardar_filas(filas):
 
@@ -186,7 +221,6 @@ def guardar_filas(filas):
 
         print(e)
         raise
-
 
 
 async def resumen(update, context):
@@ -279,16 +313,7 @@ async def estado(update, context):
 
     datos = hoja.get_all_records()
 
-    presupuesto = {
-        "Jonathan":667000,
-        "Lorena":667000,
-        "Apolo":529200,
-        "Ahorros":5350000,
-        "Hogar":3170000,
-        "Entretenimiento":332000,
-        "Comida":1588000,
-        "Vivienda":1303000
-    }
+    presupuesto = obtener_presupuesto()
 
     gastado = {}
 
@@ -549,16 +574,7 @@ async def insights(update, context):
 
     datos = hoja.get_all_records()
 
-    presupuesto = {
-        "Jonathan":1006200,
-        "Lorena":762000,
-        "Apolo":460000,
-        "Ahorros":5350000,
-        "Hogar":2267000,
-        "Entretenimiento":332000,
-        "Comida":1788700,
-        "Vivienda":1270000
-    }
+    presupuesto = obtener_presupuesto()
 
     gasto = {}
     total = 0
@@ -830,16 +846,7 @@ async def faltante(update, context):
 
     datos = hoja.get_all_records()
 
-    presupuesto = {
-        "Jonathan":1006200,
-        "Lorena":762000,
-        "Apolo":460000,
-        "Ahorros":5350000,
-        "Hogar":2267000,
-        "Entretenimiento":332000,
-        "Comida":1788700,
-        "Vivienda":1270000
-    }
+    presupuesto = obtener_presupuesto()
 
     gastado = {}
 
